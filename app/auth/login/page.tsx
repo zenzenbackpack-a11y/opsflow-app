@@ -1,6 +1,6 @@
 "use client"
 
-import { FormEvent, useState } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
@@ -10,6 +10,54 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [pending, setPending] = useState(false)
-  async function submit(event: FormEvent) { event.preventDefault(); setPending(true); setError(""); const { error } = await createClient().auth.signInWithPassword({ email, password }); if (error) { setError(error.message.toLowerCase().includes("confirm") ? "Please confirm your email before signing in." : "Invalid email or password."); setPending(false); return } router.push("/dashboard"); router.refresh() }
-  return <main className="auth-shell"><section className="auth-card"><div className="brand"><span className="brand-mark">O</span><span>opsflow</span></div><div><p className="eyebrow">Welcome back</p><h1>Sign in to your workspace</h1><p className="muted">Use your email and password to continue.</p></div><form onSubmit={submit} className="auth-form"><label>Email<input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label><label>Password<input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} /></label>{error && <p className="auth-error" role="alert">{error}</p>}<button className="primary-button" disabled={pending}>{pending ? "Signing in..." : "Sign in"}</button></form><p className="auth-switch">New to opsflow? <a href="/auth/sign-up">Create an account</a></p></section></main>
+  const [message, setMessage] = useState("")
+
+  const supabase = createClient()
+
+  async function handleMagicLink(e: React.FormEvent) {
+    e.preventDefault()
+    setPending(true)
+    setError("")
+    
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/dashboard`,
+      },
+    })
+
+    if (error) {
+      setError(error.message)
+      setPending(false)
+    } else {
+      setMessage("Check your email for the magic link!")
+      setPending(false)
+    }
+  }
+
+  return (
+    <div className="auth-shell">
+      <section className="auth-card">
+        <h1 className="brand">OpsFlow</h1>
+        <form onSubmit={handleMagicLink} className="auth-form">
+          {error && <div className="error-message">{error}</div>}
+          {message && <div className="success-message">{message}</div>}
+          
+          <div className="input-group">
+            <label>Email</label>
+            <input 
+              type="email" 
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)} 
+              required 
+            />
+          </div>
+
+          <button type="submit" className="primary-btn" disabled={pending}>
+            {pending ? "Sending..." : "Send Magic Link"}
+          </button>
+        </form>
+      </section>
+    </div>
+  )
 }
